@@ -2,28 +2,44 @@ import requests
 from bs4 import BeautifulSoup
 import json
 
-# Step 1: Fetch the webpage content
+# URL of the page to scrape
 url = "https://namu.wiki/w/끄투/한국어/긴%20단어"
+
+# Fetch the page content
 response = requests.get(url)
-response.raise_for_status()  # Ensure the request was successful
+response.encoding = 'utf-8'  # Ensure correct encoding
+page_content = response.text
 
-# Step 2: Parse the HTML content using BeautifulSoup
-soup = BeautifulSoup(response.text, 'html.parser')
+# Parse the HTML content
+soup = BeautifulSoup(page_content, 'html.parser')
 
-# Step 3: Find the data you need
-# For example, let's assume the long words are in a specific section of the page
-# You'll need to adjust these selectors based on the actual HTML structure of the page
-long_words_section = soup.find("div", {"class": "wiki-paragraph"})
+# Find the section containing the long words
+sections = soup.find_all('div', class_='wiki-heading-content')
 
-# Extract the words
-long_words = [word.get_text(strip=True) for word in long_words_section.find_all("li")]
+# Dictionary to store the words by their initial characters
+words_dict = {}
 
-# Step 4: Save the data to a JSON file
-data = {
-    "long_words": long_words
-}
+for section in sections:
+    # Each section is a list of lines, we need to filter out the relevant ones
+    lines = section.get_text().splitlines()
+    
+    # Clean up the lines and add them to the dictionary
+    current_initial = None
+    for line in lines:
+        # Ignore empty lines or irrelevant data
+        if not line.strip():
+            continue
+        
+        # Determine if the line is a header (e.g., [가], [각])
+        if line.startswith('[') and line.endswith(']'):
+            current_initial = line[1:-1]
+            words_dict[current_initial] = []
+        elif current_initial:
+            # Add the word to the current initial's list
+            words_dict[current_initial].append(line)
 
-with open('data.json', 'w', encoding='utf-8') as json_file:
-    json.dump(data, json_file, ensure_ascii=False, indent=4)
+# Save the dictionary to a JSON file
+with open('data.json', 'w', encoding='utf-8') as f:
+    json.dump(words_dict, f, ensure_ascii=False, indent=4)
 
-print("Data has been saved to data.json")
+print("Data has been scraped and saved to data.json")
